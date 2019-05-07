@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions'
 import { GraphQLClient } from 'graphql-request'
-import { format, subDays } from 'date-fns'
+import { format, subDays, parseISO } from 'date-fns'
 import { IncomingWebhook } from '@slack/webhook'
 
 const dotenv = require('dotenv');
@@ -36,6 +36,7 @@ exports.scheduledFunction = functions.
               name
               description
               url
+              createdAt
               stargazers {
                 totalCount
               }
@@ -63,23 +64,21 @@ exports.scheduledFunction = functions.
   ${node.node.name}
   ${node.node.description}
   ${node.node.url}
-  ${node.node.createdAt}`
+  createdAt: ${format(parseISO(node.node.createdAt), 'yyyy-MM-dd')}`
       }
     })
   
-  const slackWebhook = process.env.slackApiUrl
+  const slackWebhook = process.env.slackApiUrl as string
 
-  if (slackWebhook !== undefined) {
-    const webhook = new IncomingWebhook(slackWebhook,{
-      icon_emoji: ':bowtie:',
-    });
-    try {
-      // ３件ないとエラーが出る
-      await webhook.send(messages[0]);
-      await webhook.send(messages[1]);  
-      await webhook.send(messages[2]);    
-    } catch (err) {
-      console.error(err)
-    }  
+  const webhook = new IncomingWebhook(slackWebhook,{
+    icon_emoji: ':bowtie:',
+  });
+  try {
+    // tslint:disable-next-line:prefer-for-of
+    for(let i = 0; i < messages.length; i++) {
+      await webhook.send(messages[i]);
+    }
+  } catch (err) {
+    console.error(err)
   }
 });
